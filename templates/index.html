@@ -77,6 +77,30 @@
                 </div>
                 <div class="result-divider"></div>
                 <span class="result-label">你的體位屬於 <strong>{{ result.label }}</strong></span>
+                <figure class="bmi-gauge">
+                  <svg viewBox="0 0 360 200" role="img" aria-labelledby="gauge-title gauge-description">
+                    <title id="gauge-title">BMI 半圓形指針儀表板</title>
+                    <desc id="gauge-description">BMI {{ result.bmi }}，{{ result.label }}。刻度範圍 {{ gauge.minimum }} 至 {{ gauge.maximum }}。{% if gauge.out_of_range %}實際數值超出刻度範圍，指針停留於端點。{% endif %}</desc>
+                    {% for segment in gauge.segments %}
+                      <path class="gauge-band gauge-band-{{ loop.index }}" d="{{ segment.path }}"></path>
+                    {% endfor %}
+                    {% for tick in gauge.ticks %}
+                      <line class="gauge-tick" x1="{{ tick.inner.x }}" y1="{{ tick.inner.y }}" x2="{{ tick.outer.x }}" y2="{{ tick.outer.y }}"></line>
+                      <text class="gauge-tick-label" x="{{ tick.label.x }}" y="{{ tick.label.y + 4 }}" text-anchor="middle">{{ tick.value }}</text>
+                    {% endfor %}
+                    <line class="gauge-needle" x1="180" y1="170" x2="65" y2="170" transform="rotate({{ gauge.angle }} 180 170)"></line>
+                    <circle class="gauge-hub" cx="180" cy="170" r="7"></circle>
+                  </svg>
+                  <figcaption>
+                    <span class="gauge-caption">成人 BMI 體位參考</span>
+                    <ul class="gauge-legend">
+                      {% for segment in gauge.segments %}
+                        <li><i class="gauge-swatch gauge-band-{{ loop.index }}" aria-hidden="true"></i><span>{{ segment.label }}<small>{% if loop.first %}低於 {{ segment.end }}{% elif loop.last %}{{ segment.start }} 以上{% else %}{{ segment.start }} 至未滿 {{ segment.end }}{% endif %}</small></span></li>
+                      {% endfor %}
+                    </ul>
+                    {% if gauge.out_of_range %}<p class="gauge-notice" role="status">實際 BMI 超出儀表板刻度範圍（{{ gauge.minimum }} 至 {{ gauge.maximum }}），指針停留於端點；實際數值為 {{ result.bmi }}，分類為{{ result.label }}。</p>{% endif %}
+                  </figcaption>
+                </figure>
                 <h2 id="result-title">給你的健康建議</h2>
                 <p>{{ result.advice }}</p>
                 <ul class="health-tips">

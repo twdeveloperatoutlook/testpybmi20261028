@@ -64,11 +64,28 @@ button span { font-size: 20px; font-weight: 400; }
 .result-panel.high { background: #f5eddf; }
 .panel-kicker { position: relative; z-index: 1; color: #5f816d; }
 .result-main { position: relative; z-index: 1; display: flex; align-items: baseline; gap: 12px; margin-top: 35px; }
-.result-number { font-size: clamp(70px, 8vw, 110px); font-weight: 700; line-height: 1.1; letter-spacing: -.085em; }
+.result-number { min-width: 0; overflow-wrap: anywhere; font-size: clamp(70px, 8vw, 110px); font-weight: 700; line-height: 1.1; letter-spacing: -.085em; }
 .result-unit { color: #728a77; font-size: 13px; font-weight: 700; letter-spacing: .1em; }
 .result-divider { position: relative; z-index: 1; height: 1px; margin: 22px 0 25px; background: #b6cfb5; }
 .result-label { position: relative; z-index: 1; color: #5c735e; font-size: 14px; }
 .result-label strong { margin-left: 5px; color: #234f37; font-size: 18px; }
+.bmi-gauge { position: relative; z-index: 1; margin: 24px 0 0; }
+.bmi-gauge svg { display: block; width: 100%; height: auto; overflow: visible; }
+.gauge-band { fill: none; stroke-width: 22; }
+.gauge-band-1 { stroke: #829fb5; background: #829fb5; }
+.gauge-band-2 { stroke: #6b9a6d; background: #6b9a6d; }
+.gauge-band-3 { stroke: #bd902d; background: #bd902d; }
+.gauge-band-4 { stroke: #bb7556; background: #bb7556; }
+.gauge-tick { stroke: #405247; stroke-width: 1.5; }
+.gauge-tick-label { fill: #24352f; font-size: 12px; font-weight: 600; }
+.gauge-needle { stroke: #24352f; stroke-width: 4; stroke-linecap: round; }
+.gauge-hub { fill: #24352f; stroke: #fff; stroke-width: 2; }
+.gauge-caption { color: #405247; font-size: 12px; font-weight: 700; }
+.gauge-legend { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 12px 0 0; padding: 0; list-style: none; }
+.gauge-legend li { display: flex; align-items: baseline; gap: 7px; color: #24352f; font-size: 12px; }
+.gauge-swatch { flex: 0 0 8px; height: 8px; border-radius: 50%; }
+.gauge-legend small { display: block; margin-top: 3px; color: #405247; font-size: 11px; }
+.result-panel .gauge-notice { margin-top: 14px; font-size: 12px; overflow-wrap: anywhere; }
 .result-panel h2 { position: relative; z-index: 1; margin: 31px 0 10px; font-size: 17px; }
 .result-panel p { position: relative; z-index: 1; max-width: 340px; margin: 0; color: #4f6657; font-size: 14px; line-height: 1.9; }
 .health-tips { position: relative; z-index: 1; margin: 20px 0; padding: 0; list-style: none; color: #4f6657; font-size: 14px; line-height: 1.9; }

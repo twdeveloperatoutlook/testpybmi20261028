@@ -1,4 +1,6 @@
 import json
+import math
+import re
 import tempfile
 import unittest
 from concurrent.futures import ThreadPoolExecutor
@@ -6,8 +8,9 @@ from html import escape, unescape
 from pathlib import Path
 from unittest.mock import patch
 from uuid import uuid4
+from xml.etree import ElementTree
 
-from app import HEALTH_SOURCES, app, bmi_guidance, history_chart, load_history, save_record
+from app import HEALTH_SOURCES, app, bmi_gauge, bmi_guidance, history_chart, load_history, save_record
 
 
 class BmiAppTests(unittest.TestCase):
@@ -35,6 +38,7 @@ class BmiAppTests(unittest.TestCase):
         self.assertNotIn('class="advice-sources"', page)
         self.assertIn('id="name"', page)
         self.assertNotIn('class="bmi-chart"', page)
+        self.assertNotIn('class="bmi-gauge"', page)
         self.assertEqual(list(Path(self.directory.name).iterdir()), [])
         self.assertIn('href="/users"', page)
 
@@ -126,6 +130,71 @@ class BmiAppTests(unittest.TestCase):
         self.assertIn("健康體位", page)
         self.assertIn("維持均衡飲食", page)
 
+    def test_gauge_geometry_and_category_boundaries(self):
+        for bmi, category in (
+            (0, "體重過輕"), (18.4, "體重過輕"), (18.5, "健康體位"),
+            (23.9, "健康體位"), (24, "體重過重"), (26.9, "體重過重"),
+            (27, "肥胖"), (40, "肥胖"), (40.1, "肥胖"), (1.7e308, "肥胖"),
+        ):
+            with self.subTest(bmi=bmi):
+                gauge = bmi_gauge(bmi)
+                self.assertAlmostEqual(gauge["angle"], min(bmi, 40) / 40 * 180, places=4)
+                self.assertEqual(gauge["out_of_range"], bmi > 40)
+                self.assertTrue(math.isfinite(gauge["angle"]))
+                self.assertEqual([tick["value"] for tick in gauge["ticks"]], [0, 18.5, 24, 27, 40])
+                self.assertEqual([segment["label"] for segment in gauge["segments"]], [
+                    "體重過輕", "健康體位", "體重過重", "肥胖",
+                ])
+                segment = next(
+                    segment for segment in gauge["segments"]
+                    if segment["start"] <= min(bmi, 40) < segment["end"]
+                    or (segment["end"] == 40 and bmi >= 40)
+                )
+                self.assertEqual(segment["label"], category)
+                for segment in gauge["segments"]:
+                    self.assertRegex(segment["path"], r"^M [\d.]+ [\d.]+ A 130 130 0 0 1 [\d.]+ [\d.]+$")
+
+    def test_gauge_uses_displayed_bmi_and_accessible_svg(self):
+        for weight, displayed, category in (
+            ("18.46", "18.5", "健康體位"), ("23.96", "24.0", "體重過重"),
+            ("26.96", "27.0", "肥胖"), ("0.01", "0.0", "體重過輕"),
+            ("40", "40.0", "肥胖"), ("40.1", "40.1", "肥胖"),
+        ):
+            with self.subTest(weight=weight):
+                page = self.calculate(height="100", weight=weight).get_data(as_text=True)
+                svg_text = re.search(
+                    r'<figure class="bmi-gauge">\s*(<svg.*?</svg>)', page, re.DOTALL,
+                ).group(1)
+                svg = ElementTree.fromstring(svg_text)
+                self.assertEqual(svg.attrib["role"], "img")
+                self.assertEqual(svg.attrib["viewBox"], "0 0 360 200")
+                self.assertEqual(svg.attrib["aria-labelledby"], "gauge-title gauge-description")
+                self.assertIn(f"BMI {displayed}，{category}", svg.find("desc").text)
+                needle = svg.find("./line[@class='gauge-needle']")
+                self.assertEqual(
+                    needle.attrib["transform"],
+                    f'rotate({bmi_gauge(float(displayed))["angle"]} 180 170)',
+                )
+                self.assertEqual(len(svg.findall("path")), 4)
+                self.assertEqual(len(svg.findall("text")), 5)
+                self.assertEqual('class="gauge-notice"' in page, float(displayed) > 40)
+                self.assertIn("成人 BMI 體位參考", page)
+                for label in ("體重過輕", "健康體位", "體重過重", "肥胖"):
+                    self.assertIn(f"<span>{label}<small>", page)
+
+    def test_gauge_updates_on_recalculation_and_history_lookup(self):
+        first = self.calculate(height="100", weight="20")
+        first_url = first.history[0].headers["Location"]
+        second = self.calculate(height="100", weight="30")
+        self.assertIn('transform="rotate(135.0 180 170)"', second.get_data(as_text=True))
+        self.assertNotIn('transform="rotate(90.0 180 170)"', second.get_data(as_text=True))
+        page = self.client.get(first_url).get_data(as_text=True)
+        self.assertIn('transform="rotate(90.0 180 170)"', page)
+        self.assertIn("BMI 20.0，健康體位", page)
+        invalid = self.calculate(height="0").get_data(as_text=True)
+        self.assertNotIn('class="bmi-gauge"', invalid)
+        self.assertEqual(len(load_history("測試使用者")), 2)
+
     def test_health_tips_and_sources_for_each_category(self):
         for bmi, category in [
             (18.4, "體重過輕"),
@@ -205,6 +274,7 @@ class BmiAppTests(unittest.TestCase):
                 self.assertEqual(response.status_code, 200)
                 self.assertIn('aria-invalid="true"', page)
                 self.assertNotIn("YOUR RESULT", page)
+                self.assertNotIn('class="bmi-gauge"', page)
                 self.assertNotIn('class="health-tips"', page)
                 self.assertNotIn('class="advice-sources"', page)
                 self.assertEqual(list(Path(self.directory.name).iterdir()), [])
@@ -313,6 +383,8 @@ class BmiAppTests(unittest.TestCase):
         self.assertEqual(response.status_code, 503)
         self.assertIn("22.5", page)
         self.assertIn("本次紀錄未儲存", page)
+        self.assertIn('class="bmi-gauge"', page)
+        self.assertIn('transform="rotate(101.25 180 170)"', page)
         self.assertNotIn('class="bmi-chart"', page)
         self.assertEqual(list(Path(self.directory.name).iterdir()), [])
 
