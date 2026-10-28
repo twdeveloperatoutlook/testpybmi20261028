@@ -177,6 +177,45 @@ def save_record(name, height, weight, bmi):
     return record
 
 
+def bmi_gauge(bmi):
+    minimum, maximum = 0, 40
+    center_x, center_y = 180, 170
+
+    def position(value, radius):
+        angle = math.pi * (1 - (value - minimum) / (maximum - minimum))
+        return {
+            "x": round(center_x + radius * math.cos(angle), 2),
+            "y": round(center_y - radius * math.sin(angle), 2),
+        }
+
+    boundaries = (minimum, 18.5, 24, 27, maximum)
+    segments = []
+    for start, end in zip(boundaries, boundaries[1:]):
+        first, last = position(start, 130), position(end, 130)
+        segments.append({
+            "path": f'M {first["x"]} {first["y"]} A 130 130 0 0 1 {last["x"]} {last["y"]}',
+            "label": bmi_guidance(start)["label"],
+            "start": start,
+            "end": end,
+        })
+    return {
+        "minimum": minimum,
+        "maximum": maximum,
+        "angle": round((min(max(bmi, minimum), maximum) - minimum) / (maximum - minimum) * 180, 4),
+        "segments": segments,
+        "ticks": [
+            {
+                "value": value,
+                "inner": position(value, 144),
+                "outer": position(value, 150),
+                "label": position(value, 163),
+            }
+            for value in boundaries
+        ],
+        "out_of_range": bmi < minimum or bmi > maximum,
+    }
+
+
 def history_chart(records):
     width = max(640, len(records) * 115 + 100)
     left, top, plot_height = 65, 25, 230
@@ -252,7 +291,7 @@ def index():
             return render_template(
                 "index.html", name_input=name_input, height_input=height_input,
                 weight_input=weight_input, errors=errors, result=None,
-                health_sources=HEALTH_SOURCES, chart=None, storage_error=storage_error,
+                health_sources=HEALTH_SOURCES, chart=None, gauge=None, storage_error=storage_error,
                 history_notice=history_notice,
             ), status
         height = parse_positive_number(height_input)
@@ -307,6 +346,7 @@ def index():
         weight_input=weight_input,
         errors=errors,
         result=result,
+        gauge=bmi_gauge(float(result["bmi"])) if result else None,
         health_sources=HEALTH_SOURCES,
         chart=history_chart(history) if history else None,
         storage_error=storage_error,
